@@ -60,6 +60,10 @@ public class EspDevice implements IEspDevice, Cloneable
     
     protected List<EspDeviceTimer> mTimerList;
     
+    protected int mRssi = RSSI_NULL;
+    
+    protected String mInfo;
+    
     private List<IEspStatusEspnow> mEspnowStatusList = new ArrayList<IEspStatusEspnow>();
     
     /**
@@ -192,6 +196,26 @@ public class EspDevice implements IEspDevice, Cloneable
     public void setUserId(long userId)
     {
         this.mUserId = userId;
+    }
+    
+    @Override
+    public int getRssi() {
+        return mRssi;
+    }
+    
+    @Override
+    public void setRssi(int rssi) {
+        mRssi = rssi;
+    }
+    
+    @Override
+    public void setInfo(String info) {
+        mInfo = info;
+    }
+    
+    @Override
+    public String getInfo() {
+        return mInfo;
     }
     
     @Override
@@ -392,7 +416,7 @@ public class EspDevice implements IEspDevice, Cloneable
     public void copyDeviceRomVersion(IEspDevice deivce)
     {
         IEspDeviceUpgradeParser parser = EspDeviceUpgradeParser.getInstance();
-        IEspDeviceUpgradeInfo deviceUpgradeInfoCurrent = parser.parseUpgradeInfo(this.mRomVersion);
+//        IEspDeviceUpgradeInfo deviceUpgradeInfoCurrent = parser.parseUpgradeInfo(this.mRomVersion);
         IEspDeviceUpgradeInfo deviceUpgradeInfoNew = parser.parseUpgradeInfo(deivce.getRom_version());
         if (deviceUpgradeInfoNew == null)
         {
@@ -400,12 +424,23 @@ public class EspDevice implements IEspDevice, Cloneable
             return;
         }
         // only the higher version could be copied to low version
-        if (deviceUpgradeInfoCurrent == null
-            || deviceUpgradeInfoNew.getVersionValue() > deviceUpgradeInfoCurrent.getVersionValue())
-        {
-            this.mRomVersion = deivce.getRom_version();
-        }
+//        if (deviceUpgradeInfoCurrent == null
+//            || deviceUpgradeInfoNew.getVersionValue() > deviceUpgradeInfoCurrent.getVersionValue())
+//        {
+        this.mRomVersion = deivce.getRom_version();
+//        }
         this.mLatestRomVersion = deivce.getLatest_rom_version();
+    }
+    
+
+    @Override
+    public void copyDeviceRssi(IEspDevice device)
+    {
+        int newRssi = device.getRssi();
+        if (newRssi != IEspDevice.RSSI_NULL)
+        {
+            this.mRssi = newRssi;
+        }
     }
     
     @Override
@@ -446,6 +481,16 @@ public class EspDevice implements IEspDevice, Cloneable
     }
     
     @Override
+    public void copyDeviceInfo(IEspDevice device)
+    {
+        String newInfo = device.getInfo();
+        if (newInfo != null)
+        {
+            mInfo = device.getInfo();
+        }
+    }
+    
+    @Override
     public boolean equals(Object o)
     {
         // check the type
@@ -477,9 +522,9 @@ public class EspDevice implements IEspDevice, Cloneable
     @Override
     public String toString()
     {
-        return "EspDevice: (mBssid=[" + mBssid + "],mParentDeviceBssid=[" + mParentDeviceBssid + "]mDeviceId=["
-            + mDeviceId + "],mDeviceName=[" + mDeviceName + "],mDeviceState=[" + mDeviceState + "],mIsMeshDevice=["
-            + mIsMeshDevice + "],mInetAddress=[" + mInetAddress + "])";
+        return "EspDevice: (mUserId=[" + mUserId + "]," + "mBssid=[" + mBssid + "],mParentDeviceBssid=["
+            + mParentDeviceBssid + "]mDeviceId=[" + mDeviceId + "],mDeviceName=[" + mDeviceName + "],mDeviceState=["
+            + mDeviceState + "],mIsMeshDevice=[" + mIsMeshDevice + "],mInetAddress=[" + mInetAddress + "])";
     }
     
     private List<IEspDeviceTreeElement> __getDeviceTreeElementListByBssid2(List<IEspDevice> allDeviceList)

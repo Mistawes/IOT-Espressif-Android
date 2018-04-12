@@ -81,7 +81,7 @@
         <item>删除</item>
     </string-array>
 
-    <string-array name="esp_ui_device_sort">
+    <string-array name="esp_main_device_sort">
         <item>设备名</item>
         <item>激活时间</item>
     </string-array>
@@ -101,4 +101,14 @@
         <item>K</item>
         <item>L</item>
     </string-array>
+
+    <integer-array name="esp_light_colors">
+        <item>0xffffffff</item>
+        <item>0xffff0000</item>
+        <item>0xffffff00</item>
+        <item>0xff00ff00</item>
+        <item>0xff00ffff</item>
+        <item>0xff0000ff</item>
+        <item>0xffff00ff</item>
+    </integer-array>
 </resources>

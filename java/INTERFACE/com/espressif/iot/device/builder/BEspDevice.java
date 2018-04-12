@@ -1,5 +1,6 @@
 package com.espressif.iot.device.builder;
 
+import com.espressif.iot.user.IEspUser;
 import com.espressif.iot.device.IEspDevice;
 import com.espressif.iot.device.IEspDeviceConfigure;
 import com.espressif.iot.device.array.IEspDeviceArray;
@@ -220,6 +221,10 @@ public class BEspDevice implements IBEspDevice
             device.setKey(iotAddress.getBSSID());
             device.setId(getNextId());
             device.setIsOwner(false);
+            device.setRom_version(iotAddress.getRomVersion());
+            device.setRssi(iotAddress.getRssi());
+            device.setInfo(iotAddress.getInfo());
+            device.setUserId(IEspUser.GUEST_USER_ID);
         }
 
         return device;

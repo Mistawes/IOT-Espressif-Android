@@ -1,18 +1,20 @@
 package com.espressif.iot.type.device.status;
 
+import android.graphics.Color;
+
 public class EspStatusLight implements IEspStatusLight, Cloneable
 {
     private int mCWhite;
-    
     private int mWWhite;
+    private int mWhite;
     
     private int mRed;
-    
     private int mGreen;
-    
     private int mBlue;
     
     private int mPeriod;
+    
+    private int mStatus = STATUS_NULL;
     
     @Override
     public int getRed()
@@ -76,14 +78,13 @@ public class EspStatusLight implements IEspStatusLight, Cloneable
         }
         IEspStatusLight other = (IEspStatusLight)o;
         return other.getPeriod() == this.mPeriod && other.getRed() == this.mRed && other.getGreen() == this.mGreen
-            && other.getBlue() == this.mBlue && other.getCWhite() == this.mCWhite && other.getWWhite() == this.mWWhite;
+            && other.getBlue() == this.mBlue && other.getWhite() == this.mWhite;
     }
     
     @Override
-    public String toString()
-    {
-        return "EspStatusLight: (mRed=[" + mRed + "],mGreen=[" + mGreen + "],mBlue=[" + mBlue + "],mPeriod=[" + mPeriod
-            + "])";
+    public String toString() {
+        return "EspStatusLight: (mStatus=[" + mStatus + "],mRed=[" + mRed + "],mGreen=[" + mGreen + "],mBlue=[" + mBlue
+            + "],mWhite=[" + mWhite + "],mPeriod=[" + mPeriod + "])";
     }
     
     @Override
@@ -115,5 +116,55 @@ public class EspStatusLight implements IEspStatusLight, Cloneable
     public void setWWhite(int white)
     {
         mWWhite = white;
+    }
+
+    @Override
+    public int getWhite() {
+        return mWhite;
+    }
+
+    @Override
+    public void setWhite(int white) {
+        mWhite = white;
+        mWWhite = white;
+        mCWhite = white;
+    }
+
+    @Override
+    public int getStatus() {
+        return mStatus;
+    }
+
+    @Override
+    public void setStatus(int status) {
+        mStatus = status;
+    }
+
+    @Override
+    public int getCurrentColor() {
+        boolean isColorStatus = true;
+        switch (mStatus) {
+            case STATUS_OFF:
+                return Color.BLACK;
+            case STATUS_ON:
+                if (mRed == mGreen && mRed == mBlue && mRed == 0) {
+                    isColorStatus = false;
+                }
+                break;
+            case STATUS_COLOR:
+                isColorStatus = true;
+                break;
+            case STATUS_BRIGHT:
+                isColorStatus = false;
+                break;
+        }
+        
+        int color;
+        if (isColorStatus) {
+            color = Color.rgb(mRed, mGreen, mBlue);
+        } else {
+            color = Color.rgb(mWhite, mWhite, mWhite);
+        }
+        return color;
     }
 }

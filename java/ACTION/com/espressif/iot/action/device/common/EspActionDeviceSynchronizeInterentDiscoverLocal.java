@@ -8,7 +8,11 @@ import java.util.concurrent.Future;
 
 import org.apache.log4j.Logger;
 
+import android.util.Log;
+
 import com.espressif.iot.base.api.EspBaseApiUtil;
+import com.espressif.iot.base.application.EspApplication;
+import com.espressif.iot.base.net.udp.LightUdpClient;
 import com.espressif.iot.command.device.common.EspCommandDeviceDiscoverLocal;
 import com.espressif.iot.command.device.common.EspCommandDeviceSynchronizeInternet;
 import com.espressif.iot.command.device.common.IEspCommandDeviceDiscoverLocal;
@@ -278,6 +282,16 @@ public class EspActionDeviceSynchronizeInterentDiscoverLocal implements
                                 device.setIsMeshDevice(iotAddress.isMeshDevice());
                                 device.setParentDeviceBssid(iotAddress.getParentBssid());
                                 deviceState.addStateLocal();
+                                // update rom version by local if necessary
+                                String romVersionLocal = iotAddress.getRomVersion();
+                                String romVersionInternet = device.getRom_version();
+                                if (romVersionLocal != null && !romVersionLocal.equals(romVersionInternet))
+                                {
+                                    Log.w("EspActionDeviceSynchronizeInterentDiscoverLocal", "romVersionLocal="
+                                        + romVersionLocal + ",romVersionInternet=" + romVersionInternet
+                                        + " is different");
+                                    device.setRom_version(romVersionLocal);
+                                }
                                 break;
                             }
                         }
@@ -313,6 +327,7 @@ public class EspActionDeviceSynchronizeInterentDiscoverLocal implements
             @Override
             public void run()
             {
+                broadcastPhoneAddress();
                 __doActionDeviceSynchronizeInterentDiscoverLocal(userKey, true, true);
             }
             
@@ -334,11 +349,20 @@ public class EspActionDeviceSynchronizeInterentDiscoverLocal implements
                 @Override
                 public void run()
                 {
+                    broadcastPhoneAddress();
                     __doActionDeviceSynchronizeInterentDiscoverLocal(null, false, true);
                 }
                 
             });
         }
+    }
+    
+    private void broadcastPhoneAddress() {
+        LightUdpClient client = new LightUdpClient(EspApplication.sharedInstance());
+        for (int i = 0; i < 3; i++) {
+            client.notifyAddress();
+        }
+        client.close();
     }
     
     @Override

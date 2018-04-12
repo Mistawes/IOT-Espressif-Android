@@ -8,21 +8,26 @@ import org.apache.log4j.Logger;
 import com.espressif.iot.R;
 import com.espressif.iot.adt.tree.IEspDeviceTreeElement;
 import com.espressif.iot.device.IEspDevice;
+import com.espressif.iot.device.IEspDeviceRoot;
 import com.espressif.iot.device.array.IEspDeviceArray;
+import com.espressif.iot.device.builder.BEspDevice;
 import com.espressif.iot.type.device.EspDeviceType;
 import com.espressif.iot.type.device.IEspDeviceState;
 import com.espressif.iot.type.device.IEspDeviceStatus;
+import com.espressif.iot.type.net.IOTAddress;
 import com.espressif.iot.type.upgrade.EspUpgradeDeviceTypeResult;
 import com.espressif.iot.ui.configure.EspButtonConfigureActivity;
+import com.espressif.iot.ui.device.light.DeviceLightActivity;
 import com.espressif.iot.ui.device.soundbox.DeviceSoundboxActivity;
 import com.espressif.iot.ui.device.timer.DeviceTimersActivity;
 import com.espressif.iot.ui.device.trigger.DeviceTriggerActivity;
 import com.espressif.iot.ui.main.EspActivityAbs;
+import com.espressif.iot.ui.main.EspUpgradeHelper;
 import com.espressif.iot.ui.settings.SettingsActivity;
-import com.espressif.iot.ui.view.EspPagerAdapter;
-import com.espressif.iot.ui.view.EspViewPager;
-import com.espressif.iot.ui.view.TreeView;
-import com.espressif.iot.ui.view.TreeView.LastLevelItemClickListener;
+import com.espressif.iot.ui.widget.adapter.EspPagerAdapter;
+import com.espressif.iot.ui.widget.view.EspViewPager;
+import com.espressif.iot.ui.widget.view.TreeView;
+import com.espressif.iot.ui.widget.view.TreeView.LastLevelItemClickListener;
 import com.espressif.iot.user.IEspUser;
 import com.espressif.iot.user.builder.BEspUser;
 import com.espressif.iot.util.EspDefaults;
@@ -40,6 +45,7 @@ import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -62,6 +68,7 @@ public abstract class DeviceActivityAbs extends EspActivityAbs implements OnMenu
     protected IEspDevice mIEspDevice;
 
     protected IEspUser mUser;
+    protected EspUpgradeHelper mEspUpgradeHelper;
 
     private boolean mDeviceCompatibility;
 
@@ -78,47 +85,62 @@ public abstract class DeviceActivityAbs extends EspActivityAbs implements OnMenu
     private boolean mShowChildren;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState)
-    {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
-        Intent intent = getIntent();
-        String deviceKey = intent.getStringExtra(EspStrings.Key.DEVICE_KEY_KEY);
-        
+
         mUser = BEspUser.getBuilder().getInstance();
-        IEspDevice device;
-        if (sTempDevice != null && deviceKey.equals(sTempDevice.getKey())) {
-            device = sTempDevice;
-        } else {
-            device = mUser.getUserDevice(deviceKey);
-        }
-        mIEspDevice = device;
-        
+        mEspUpgradeHelper = EspUpgradeHelper.INSTANCE;
+
+        Intent intent = getIntent();
+        mIEspDevice = getDevice(intent);
+        setTitle(mIEspDevice.getName());
+
         SharedPreferences shared = getSharedPreferences(EspStrings.Key.SETTINGS_NAME, Context.MODE_PRIVATE);
         mShowChildren = mIEspDevice.getIsMeshDevice()
             && intent.getBooleanExtra(EspStrings.Key.DEVICE_KEY_SHOW_CHILDREN, EspDefaults.SHOW_CHILDREN)
             && shared.getBoolean(EspStrings.Key.SETTINGS_KEY_SHOW_MESH_TREE, EspDefaults.SHOW_MESH_TREE);
-        
-        setTitle(mIEspDevice.getName());
-        
+
         checkDeviceCompatibility();
-        
-        if (!isDeviceArray())
-        {
+
+        if (!isDeviceArray()) {
             setTitleRightIcon(R.drawable.esp_icon_menu_moreoverflow);
         }
-        
+
         initViews();
     }
-    
-    @Override
-    protected void onDestroy()
-    {
-        super.onDestroy();
-        
-        setTempDevice(null);
+
+    private IEspDevice getDevice(Intent intent) {
+        IEspDevice device = null;
+        String deviceKey = intent.getStringExtra(EspStrings.Key.DEVICE_KEY_KEY);
+        if (!TextUtils.isEmpty(deviceKey)) {
+            device = mUser.getUserDevice(deviceKey);
+        }
+
+        if (device == null) {
+            IOTAddress iotAddress = intent.getParcelableExtra(EspStrings.Key.DEVICE_KEY_IOTADDRESS);
+            if (iotAddress != null) {
+                device = BEspDevice.getInstance().createStaDevice(iotAddress);
+            }
+        }
+
+        if (device == null) {
+            String deviceTypeStr = intent.getStringExtra(EspStrings.Key.DEVICE_KEY_TYPE);
+            if (!TextUtils.isEmpty(deviceTypeStr)) {
+                EspDeviceType deviceType = EspDeviceType.getEspTypeEnumByString(deviceTypeStr);
+                IEspDeviceArray deviceArray = BEspDevice.createDeviceArray(deviceType);
+                String[] deviceKeys = intent.getStringArrayExtra(EspStrings.Key.DEVICE_KEY_KEY_ARRAY);
+                List<IEspDevice> devices = mUser.getUserDevices(deviceKeys);
+                for (IEspDevice d : devices) {
+                    deviceArray.addDevice(d);
+                }
+
+                device = deviceArray;
+            }
+        }
+
+        return device;
     }
-    
+
     private void checkDeviceCompatibility()
     {
         switch (mUser.checkDeviceCompatibility(mIEspDevice))
@@ -302,7 +324,8 @@ public abstract class DeviceActivityAbs extends EspActivityAbs implements OnMenu
             .setEnabled(upgradeOnlineEnable);
 
         // EspButton menu
-        if (mIEspDevice.getIsMeshDevice() && mIEspDevice.getDeviceState().isStateLocal()) {
+        if (mIEspDevice.getIsMeshDevice() && mIEspDevice.getDeviceState().isStateLocal()
+            && !(mIEspDevice instanceof IEspDeviceRoot)) {
             menu.add(Menu.NONE, MENU_ID_ESPBUTTON_CONFIGURE, 0, R.string.esp_device_menu_espbutton_configure);
         }
     }
@@ -327,11 +350,13 @@ public abstract class DeviceActivityAbs extends EspActivityAbs implements OnMenu
                 startActivity(timerIntent);
                 return true;
             case MENU_ID_UPGRADE_LOCAL:
-                mUser.doActionUpgradeLocal(mIEspDevice);
+                mEspUpgradeHelper.addDevice(mIEspDevice, EspUpgradeHelper.UpgradeDevice.UPGRADE_TYPE_LOCAL);
+                mEspUpgradeHelper.checkUpgradingDevices();
                 finish();
                 return true;
             case MENU_ID_UPGRADE_ONLINE:
-                mUser.doActionUpgradeInternet(mIEspDevice);
+                mEspUpgradeHelper.addDevice(mIEspDevice, EspUpgradeHelper.UpgradeDevice.UPGRADE_TYPE_INTERNET);
+                mEspUpgradeHelper.checkUpgradingDevices();
                 finish();
                 return true;
             case MENU_ID_ESPBUTTON_CONFIGURE:
@@ -435,12 +460,15 @@ public abstract class DeviceActivityAbs extends EspActivityAbs implements OnMenu
                     {
                         case DialogInterface.BUTTON_POSITIVE: // upgrade local
                             log.debug("Click upgrade device hint dialog local button");
-                            mUser.doActionUpgradeLocal(mIEspDevice);
+                            mEspUpgradeHelper.addDevice(mIEspDevice, EspUpgradeHelper.UpgradeDevice.UPGRADE_TYPE_LOCAL);
+                            mEspUpgradeHelper.checkUpgradingDevices();
                             finish();
                             break;
                         case DialogInterface.BUTTON_NEUTRAL: // upgrade online
                             log.debug("Click upgrade device hint dialog online button");
-                            mUser.doActionUpgradeInternet(mIEspDevice);
+                            mEspUpgradeHelper.addDevice(mIEspDevice,
+                                EspUpgradeHelper.UpgradeDevice.UPGRADE_TYPE_INTERNET);
+                            mEspUpgradeHelper.checkUpgradingDevices();
                             finish();
                             break;
                     }
@@ -762,7 +790,23 @@ public abstract class DeviceActivityAbs extends EspActivityAbs implements OnMenu
         
         return _class;
     }
-    
+
+    public static Class<?> getLocalDeviceClass(EspDeviceType type) {
+        Class<?> cls = null;
+        switch (type) {
+            case PLUG:
+                cls = DevicePlugActivity.class;
+                break;
+            case LIGHT:
+                cls = DeviceLightActivity.class;
+                break;
+            default:
+                break;
+        }
+
+        return cls;
+    }
+
     /**
      * The device is normal device or IEspDeviceArray
      * 
@@ -771,16 +815,5 @@ public abstract class DeviceActivityAbs extends EspActivityAbs implements OnMenu
     protected boolean isDeviceArray()
     {
         return mIEspDevice instanceof IEspDeviceArray;
-    }
-
-    private static IEspDevice sTempDevice;
-
-    /**
-     * Set the temp device for IEspDeviceArray(Group mode etc.) or IEspDeviceSSS(DirectConnect mode etc.)
-     * 
-     * @param device
-     */
-    public static void setTempDevice(IEspDevice device) {
-        sTempDevice = device;
     }
 }
